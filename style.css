@@ -1,0 +1,433 @@
+:root {
+    --system-blur: saturate(180%) blur(20px);
+    --primary-color: #0066cc;
+    --background-color: #fbfbfd;
+    --text-color: #1d1d1f;
+    --border-color: rgba(0, 0, 0, 0.05);
+    --card-background: rgba(255, 255, 255, 0.7);
+    --hover-color: #0055b3;
+    --active-color: #004499;
+    --highlight-color: rgba(0, 122, 255, 0.15);
+    --highlight-border: rgba(0, 122, 255, 0.3);
+    --mine-color: #ff3b30;
+    --mine-win-color: #34c759;
+    --mine-border-win: rgba(52, 199, 89, 0.6);
+    --mine-border-lose: rgba(255, 59, 48, 0.6);
+    --cell-size: 40px;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    margin: 0;
+    min-height: 100vh;
+    background: var(--background-color);
+    color: var(--text-color);
+    -webkit-font-smoothing: antialiased;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+    height: 100vh;
+    box-sizing: border-box;
+}
+
+#header {
+    text-align: center;
+    padding: 2.5rem 0;
+}
+
+h1 {
+    color: #1d1d1f;
+    font-size: 2.8rem;
+    font-weight: 600;
+    margin: 0;
+    letter-spacing: -0.02em;
+}
+
+#message {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    padding: 0.75rem 1.5rem;
+    background: var(--mine-win-color);
+    color: white;
+    border: 1px solid var(--mine-border-win);
+    font-weight: 500;
+    backdrop-filter: var(--system-blur);
+    -webkit-backdrop-filter: var(--system-blur);
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    transform: translateY(-100%);
+    opacity: 0;
+    transition: all 0.3s ease;
+    display: block; /* 确保消息元素始终存在 */
+}
+
+#message.visible {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+/* 添加游戏失败时的样式 */
+.gameWon #message {
+    background: var(--mine-win-color);
+    border: 1px solid var(--mine-border-win);
+}
+
+.gameLost #message {
+    background: var(--mine-color);
+    border: 1px solid var(--mine-border-lose);
+}
+
+/* 游戏状态样式 */
+body.gameWon #message {
+    background: var(--mine-win-color);
+    border-color: var(--mine-border-win);
+}
+
+body.gameLost #message {
+    background: var(--mine-color);
+    border-color: var(--mine-border-lose);
+}
+
+#main {
+    display: flex;
+    gap: 2rem;
+    padding: 2rem;
+    background: var(--card-background);
+    border-radius: 20px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+    backdrop-filter: var(--system-blur);
+    -webkit-backdrop-filter: var(--system-blur);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    max-width: 95vw;
+    max-height: 90vh;
+    max-height: 95vh;
+    max-width: 95vw;
+    margin: auto;
+    overflow: hidden;
+    padding: 1rem;
+    gap: 1rem;
+}
+
+#game-board {
+    display: grid;
+    gap: 5px;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 16px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    max-height: calc(100vh - 200px);
+    max-width: calc(100vw - 400px);
+    overflow: auto;
+    max-height: unset;
+    max-width: unset;
+    overflow: visible;
+    align-self: center;
+    grid-template-columns: repeat(var(--board-width), var(--cell-size));
+    grid-template-rows: repeat(var(--board-height), var(--cell-size));
+    contain: content; /* 优化渲染性能 */
+    will-change: transform; /* 优化动画性能 */
+}
+
+.cell {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    font-weight: 500;
+    background: rgba(230, 230, 230, 0.8);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.2s ease;
+    width: var(--cell-size);
+    height: var(--cell-size);
+    font-size: calc(var(--cell-size) * 0.5);
+    border-radius: calc(var(--cell-size) * 0.2);
+    contain: strict; /* 优化单元格渲染 */
+    will-change: transform, opacity; /* 优化动画性能 */
+    backface-visibility: hidden; /* 优化 GPU 加速 */
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+                background-color 0.2s ease,
+                box-shadow 0.2s ease;
+}
+
+.cell:hover {
+    transform: scale(1.05);
+    background: white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.cell.revealed {
+    background: white;
+}
+
+.cell.mine {
+    background: var(--mine-color);
+    border-color: var(--mine-border-lose);
+    color: white;
+    animation: shake 0.5s ease-in-out;
+}
+
+.cell.mine-win {
+    background: var(--mine-win-color);
+    border-color: var(--mine-border-win);
+    color: white;
+    animation: pulse 1s ease-in-out;
+}
+
+.cell.highlight {
+    background: var(--highlight-color);
+    border-color: var(--highlight-border);
+    transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(0, 122, 255, 0.1);
+}
+
+#custom-settings {
+    width: 80%;
+    display: none;
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-color);
+}
+
+label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #86868b;
+}
+
+@media (max-width: 768px) {
+    #main {
+        flex-direction: column;
+        padding: 1rem;
+        gap: 1rem;
+        padding: 0.5rem;
+        gap: 0.5rem;
+    }
+
+    #controls {
+        width: 100%;
+        box-sizing: border-box;
+        min-width: unset;
+        max-width: 100%;
+    }
+
+    #game-board {
+        max-width: calc(100vw - 32px);
+        padding: 12px;
+        max-height: calc(100vh - 200px);
+        overflow: auto;
+    }
+
+    .cell {
+        --cell-size: 32px;
+    }
+}
+
+@media (max-width: 480px) {
+    .cell {
+        --cell-size: 30px;
+    }
+
+    #controls {
+        padding: 0.5rem;
+    }
+}
+
+select, input {
+    width: 100%;
+    height: 44px;
+    padding: 0 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    font-size: 0.9375rem;
+    color: var(--text-color);
+    background: rgba(255, 255, 255, 0.8);
+    transition: all 0.2s ease;
+}
+
+select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h10L5 6z' fill='%238E8E93'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    padding-right: 2.5rem;
+}
+
+select:focus, input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.1);
+    background: #fff;
+}
+
+button {
+    width: 100%;
+    padding: 0.75rem;
+    border: none;
+    border-radius: 12px;
+    background: var(--primary-color);
+    color: white;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+button:hover {
+    background: var(--hover-color);
+    transform: translateY(-1px);
+}
+
+button:active {
+    background: var(--active-color);
+    transform: translateY(0);
+}
+
+.apple-card {
+    background: var(--card-background);
+    backdrop-filter: var(--system-blur);
+    -webkit-backdrop-filter: var(--system-blur);
+    border-radius: 20px;
+    box-shadow: 
+        0 2px 8px rgba(0, 0, 0, 0.04),
+        0 8px 24px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.apple-input {
+    background: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 12px;
+    padding: 12px 16px;
+    font-size: 15px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.apple-input:focus {
+    outline: none;
+    border-color: #0066cc;
+    box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.1);
+    background: #ffffff;
+}
+
+.apple-button {
+    background: #0066cc;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 12px 24px;
+    font-size: 15px;
+    font-weight: 500;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    margin-top: 20px;
+}
+
+.apple-button:hover {
+    background: #0055b3;
+    transform: translateY(-1px);
+}
+
+.apple-button:active {
+    background: #004499;
+    transform: translateY(0);
+}
+
+.text-1 { color: #0066cc; }
+.text-2 { color: #34c759; }
+.text-3 { color: #ff3b30; }
+.text-4 { color: #5856d6; }
+.text-5 { color: #ff9500; }
+.text-6 { color: #af52de; }
+.text-7 { color: #000000; }
+.text-8 { color: #8e8e93; }
+
+#controls {
+    min-width: 280px;
+    min-width: 250px;
+    max-width: 300px;
+    align-self: flex-start;
+}
+
+select, input[type="number"] {
+    width: 100%;
+    height: 44px;
+    background: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 12px;
+    padding: 0 16px;
+    font-size: 15px;
+    color: #1d1d1f;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h10L5 6z' fill='%238E8E93'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 16px center;
+    padding-right: 40px;
+}
+
+label {
+    font-size: 13px;
+    font-weight: 500;
+    color: #86868b;
+    margin-bottom: 8px;
+    display: block;
+}
+
+#custom-settings {
+    border-top: 1px solid rgba(0, 0, 0, 0.05);
+    margin-top: 20px;
+    padding-top: 20px;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-2px); }
+    75% { transform: translateX(2px); }
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+.timer {
+    font-family: monospace;
+    font-size: 24px;
+    font-weight: bold;
+    color: var(--text-color);
+    background: rgba(255, 255, 255, 0.8);
+    padding: 8px 16px;
+    border-radius: 8px;
+    text-align: center;
+    border: 1px solid var(--border-color);
+}
+
+/* 添加深色模式支持 */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --background-color: #1c1c1e;
+        --text-color: #ffffff;
+        --card-background: rgba(44, 44, 46, 0.7);
+        --border-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .cell {
+        background: rgba(58, 58, 60, 0.8);
+    }
+
+    .cell.revealed {
+        background: rgba(44, 44, 46, 0.9);
+    }
+}

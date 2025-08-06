@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>扫雷</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="message" class="message">
+        <span id="message-text"></span>
+    </div>
+    
+    <div id="main">
+        <div id="controls" class="controls">
+            <div class="control-group">
+                <div class="stats">
+                    <div>最佳时间: <span id="best-time">-</span></div>
+                    <div>胜率: <span id="win-rate">0%</span></div>
+                </div>
+            </div>
+            <div class="control-group">
+                <label for="timer">用时</label>
+                <div id="timer" class="timer">000</div>
+            </div>
+            
+            <div class="control-group">
+                <label for="difficulty">难度</label>
+                <select id="difficulty">
+                    <option value="easy">初级 (9×9, 10个雷)</option>
+                    <option value="medium">中级 (16×16, 40个雷)</option>
+                    <option value="hard">高级 (16×30, 99个雷)</option>
+                    <option value="custom">自定义</option>
+                </select>
+            </div>
+            
+            <div id="custom-settings">
+                <div class="control-group">
+                    <label for="custom-width">宽度</label>
+                    <input type="number" id="custom-width" min="5" max="30" value="10">
+                </div>
+                <div class="control-group">
+                    <label for="custom-height">高度</label>
+                    <input type="number" id="custom-height" min="5" max="30" value="10">
+                </div>
+                <div class="control-group">
+                    <label for="custom-mines">雷数量</label>
+                    <input type="number" id="custom-mines" min="1" max="100" value="10">
+                </div>
+            </div>
+            
+            <button id="new-game-button" class="apple-button">开始新游戏</button>
+            <button id="restart-button" class="apple-button" style="margin-top:10px;">重新开始</button>
+        </div>
+        
+        <div id="game-board" oncontextmenu="return false"></div>
+    </div>
+    <script type="module" src="js/script.js"></script>
+</body>
+</html>
