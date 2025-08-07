@@ -1,31 +1,39 @@
 export class GameTimer {
     constructor(element) {
         this.element = element;
-        this.timer = null;
+        this.animationId = null;
         this.startTime = 0;
-        this.lastUpdate = 0;
+        this.lastDisplayedSeconds = -1;
     }
 
     start() {
-        if (this.timer) return;
+        if (this.animationId) return;
         this.startTime = Date.now();
-        this.lastUpdate = this.startTime;
+        this.lastDisplayedSeconds = -1;
         this.update();
-        this.timer = setInterval(() => {
-            const now = Date.now();
-            const drift = now - this.lastUpdate - 1000;
-            if (Math.abs(drift) > 100) {
+        
+        // 使用requestAnimationFrame代替setInterval
+        const updateTimer = () => {
+            if (!this.animationId) return;
+            
+            const currentSeconds = Math.floor((Date.now() - this.startTime) / 1000);
+            
+            // 只在秒数变化时更新DOM，减少重绘
+            if (currentSeconds !== this.lastDisplayedSeconds) {
+                this.lastDisplayedSeconds = currentSeconds;
                 this.update();
             }
-            this.lastUpdate = now;
-            this.update();
-        }, 1000);
+            
+            this.animationId = requestAnimationFrame(updateTimer);
+        };
+        
+        this.animationId = requestAnimationFrame(updateTimer);
     }
 
     stop() {
-        if (this.timer) {
-            clearInterval(this.timer);
-            this.timer = null;
+        if (this.animationId) {
+            cancelAnimationFrame(this.animationId);
+            this.animationId = null;
         }
     }
 

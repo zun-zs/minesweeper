@@ -130,8 +130,11 @@ body.gameLost #message {
     align-self: center;
     grid-template-columns: repeat(var(--board-width), var(--cell-size));
     grid-template-rows: repeat(var(--board-height), var(--cell-size));
-    contain: content; /* 优化渲染性能 */
-    will-change: transform; /* 优化动画性能 */
+    /* 性能优化：渲染优化 */
+    contain: layout style paint;
+    will-change: transform;
+    transform: translateZ(0);
+    backface-visibility: hidden;
 }
 
 .cell {
@@ -147,14 +150,16 @@ body.gameLost #message {
     border-radius: 8px;
     cursor: pointer;
     user-select: none;
-    transition: all 0.2s ease;
     width: var(--cell-size);
     height: var(--cell-size);
     font-size: calc(var(--cell-size) * 0.5);
     border-radius: calc(var(--cell-size) * 0.2);
-    contain: strict; /* 优化单元格渲染 */
-    will-change: transform, opacity; /* 优化动画性能 */
-    backface-visibility: hidden; /* 优化 GPU 加速 */
+    /* 性能优化：减少重绘和回流 */
+    contain: strict;
+    will-change: transform, background-color;
+    backface-visibility: hidden;
+    transform: translateZ(0);
+    -webkit-font-smoothing: antialiased;
     transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
                 background-color 0.2s ease,
                 box-shadow 0.2s ease;

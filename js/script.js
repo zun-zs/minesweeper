@@ -5,39 +5,55 @@ import { GameBoard } from './board.js';
 import { GameTimer } from './timer.js';
 import { DIFFICULTY_SETTINGS, MAX_BOARD_SIZE } from './constants.js';
 import { debounce, validateBoardSize, validateMineCount } from './utils.js';
+import { performanceMonitor } from './performance.js';
 
 class Minesweeper {
     constructor() {
-        if (!this.initializeElements()) {
-            throw new Error('Failed to initialize game elements');
-        }
+        // 性能监控：测量游戏初始化时间
+        performanceMonitor.measureTime(() => {
+            if (!this.initializeElements()) {
+                throw new Error('Failed to initialize game elements');
+            }
 
-        const defaultSettings = DIFFICULTY_SETTINGS.easy;
-        this.state = new MinesweeperState(
-            defaultSettings.width,
-            defaultSettings.height,
-            defaultSettings.mines
-        );
+            const defaultSettings = DIFFICULTY_SETTINGS.easy;
+            this.state = new MinesweeperState(
+                defaultSettings.width,
+                defaultSettings.height,
+                defaultSettings.mines
+            );
 
-        this.ui = new MinesweeperUI(this.elements);
-        this.timer = new GameTimer(this.elements.timer);
-        this.board = null;
+            this.ui = new MinesweeperUI(this.elements);
+            this.timer = new GameTimer(this.elements.timer);
+            this.board = null;
+            
+            this.stats = {
+                easy: { gamesPlayed: 0, wins: 0, bestTime: Infinity },
+                medium: { gamesPlayed: 0, wins: 0, bestTime: Infinity },
+                hard: { gamesPlayed: 0, wins: 0, bestTime: Infinity },
+                custom: { gamesPlayed: 0, wins: 0, bestTime: Infinity }
+            };
+
+            const savedStats = GameStorage.loadStats();
+            if (savedStats) {
+                this.stats = savedStats;
+            }
+
+            this.initEventListeners();
+            this.initBoard();
+            this.updateStatsDisplay();
+        }, 'gameInitTime');
         
-        this.stats = {
-            easy: { gamesPlayed: 0, wins: 0, bestTime: Infinity },
-            medium: { gamesPlayed: 0, wins: 0, bestTime: Infinity },
-            hard: { gamesPlayed: 0, wins: 0, bestTime: Infinity },
-            custom: { gamesPlayed: 0, wins: 0, bestTime: Infinity }
-        };
-
-        const savedStats = GameStorage.loadStats();
-        if (savedStats) {
-            this.stats = savedStats;
-        }
-
-        this.initEventListeners();
-        this.initBoard();
-        this.updateStatsDisplay();
+        // 开始性能监控
+         performanceMonitor.startMonitoring();
+         
+         // 开发者工具：添加全局性能监控访问
+         if (typeof window !== 'undefined') {
+             window.minesweeperPerf = {
+                 getReport: () => performanceMonitor.getReport(),
+                 logReport: () => performanceMonitor.logReport(),
+                 reset: () => performanceMonitor.reset()
+             };
+         }
     }
 
     initializeElements() {
@@ -76,11 +92,13 @@ class Minesweeper {
     }
 
     initEventListeners() {
+        // 性能优化：使用事件委托，减少事件监听器数量
         if (this.elements.board) {
             this.elements.board.addEventListener('click', this.handleBoardClick.bind(this));
             this.elements.board.addEventListener('contextmenu', this.handleBoardRightClick.bind(this));
             this.elements.board.addEventListener('mousedown', this.handleBoardMouseDown.bind(this));
             this.elements.board.addEventListener('mouseup', this.handleBoardMouseUp.bind(this));
+            this.elements.board.addEventListener('mouseleave', this.handleBoardMouseUp.bind(this));
             // 移动端触控支持
             this.elements.board.addEventListener('touchstart', (e) => {
                 const touch = e.touches[0];
@@ -113,13 +131,18 @@ class Minesweeper {
             });
         }
 
+        // 自定义设置事件监听
         if (this.elements.customWidth) {
-            this.elements.customWidth.addEventListener('change', () => this.validateCustomInputs());
+            this.elements.customWidth.addEventListener('input', debounce(this.validateCustomInputs.bind(this), 300));
+        }
+        if (this.elements.customHeight) {
+            this.elements.customHeight.addEventListener('input', debounce(this.validateCustomInputs.bind(this), 300));
         }
         if (this.elements.customMines) {
-            this.elements.customMines.addEventListener('change', () => this.validateCustomInputs());
+            this.elements.customMines.addEventListener('input', debounce(this.validateCustomInputs.bind(this), 300));
         }
 
+        // 窗口大小变化事件
         window.addEventListener('resize', debounce(() => {
             if (!this.state.gameOver) {
                 this.resetGame();
@@ -147,10 +170,13 @@ class Minesweeper {
         if (cell.dataset.mine === "true") {
             this.endGame(false);
         } else {
-            const shouldRevealMore = this.board.revealCell(row, col);
-            if (shouldRevealMore) {
-                this.revealAdjacentCells(row, col);
-            }
+            // 性能监控：测量单元格揭示时间
+            performanceMonitor.measureTime(() => {
+                const shouldRevealMore = this.board.revealCell(row, col, this.state);
+                if (shouldRevealMore) {
+                    this.revealAdjacentCells(row, col);
+                }
+            }, 'cellRevealTime');
             this.checkWin();
         }
     }
@@ -229,22 +255,28 @@ class Minesweeper {
     }
 
     revealAdjacentCells(row, col) {
-        const adjacentCells = this.board.getAdjacentCells(row, col);
+        // 性能优化：使用迭代代替递归，避免栈溢出
+        const queue = [[row, col]];
         let hitMine = false;
-
-        adjacentCells.forEach(cell => {
-            if (!cell.classList.contains("revealed") && cell.dataset.mark !== "flag") {
-                if (cell.dataset.mine === "true") {
-                    hitMine = true;
-                    return;
-                }
-                const cellRow = parseInt(cell.dataset.row);
-                const cellCol = parseInt(cell.dataset.col);
-                if (this.board.revealCell(cellRow, cellCol)) {
-                    this.revealAdjacentCells(cellRow, cellCol);
+        
+        while (queue.length > 0 && !hitMine) {
+            const [currentRow, currentCol] = queue.shift();
+            const adjacentCells = this.board.getAdjacentCells(currentRow, currentCol);
+            
+            for (const cell of adjacentCells) {
+                if (!cell.classList.contains("revealed") && cell.dataset.mark !== "flag") {
+                    if (cell.dataset.mine === "true") {
+                        hitMine = true;
+                        break;
+                    }
+                    const cellRow = parseInt(cell.dataset.row);
+                    const cellCol = parseInt(cell.dataset.col);
+                    if (this.board.revealCell(cellRow, cellCol, this.state)) {
+                        queue.push([cellRow, cellCol]);
+                    }
                 }
             }
-        });
+        }
 
         if (hitMine) {
             this.endGame(false);
@@ -262,7 +294,11 @@ class Minesweeper {
                 validateMineCount(settings.mines, settings.width * settings.height)
             );
             this.resetGame();
-            this.initBoard();
+            
+            // 性能监控：测量棋盘渲染时间
+            performanceMonitor.measureTime(() => {
+                this.initBoard();
+            }, 'boardRenderTime');
         } catch (error) {
             console.error('Failed to start new game:', error);
             alert('游戏启动失败，请重试');
@@ -275,6 +311,7 @@ class Minesweeper {
         this.state.gameOver = false;
         this.state.firstClick = true;
         this.state.gameWon = false;
+        this.state.revealedCount = 0; // 性能优化：重置计数器
         document.body.classList.remove('gameWon', 'gameLost');
         this.elements.message.classList.remove("visible", "hidden");
         if (this.board) {
@@ -378,11 +415,8 @@ class Minesweeper {
     checkWin() {
         if (this.state.gameWon) return;
 
-        const revealedCount = this.board.cells.flat()
-            .filter(cell => cell.classList.contains("revealed"))
-            .length;
-
-        if (revealedCount === this.state.boardWidth * this.state.boardHeight - this.state.mineCount) {
+        // 性能优化：使用计数器而不是遍历所有单元格
+        if (this.state.revealedCount === this.state.boardWidth * this.state.boardHeight - this.state.mineCount) {
             this.endGame(true);
         }
     }

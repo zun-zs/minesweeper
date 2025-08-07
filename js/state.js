@@ -8,5 +8,6 @@ export class MinesweeperState {
         this.gameWon = false;
         this.leftMouseDown = false;
         this.rightMouseDown = false;
+        this.revealedCount = 0; // 性能优化：维护已揭示单元格计数
     }
 }

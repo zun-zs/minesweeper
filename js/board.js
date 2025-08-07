@@ -76,11 +76,17 @@ export class GameBoard {
             .length;
     }
 
-    revealCell(row, col) {
+    revealCell(row, col, gameState = null) {
         const cell = this.cells[row][col];
         if (cell.classList.contains("revealed") || cell.dataset.mark) return false;
 
         cell.classList.add("revealed");
+        
+        // 性能优化：更新揭示计数
+        if (gameState) {
+            gameState.revealedCount++;
+        }
+        
         let mineCount = this.cellCache.get(cell);
 
         if (mineCount === undefined) {
