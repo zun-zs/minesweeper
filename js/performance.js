@@ -100,22 +100,10 @@ export class PerformanceMonitor {
      * @returns {Object} 性能指标对象
      */
     getReport() {
-        const report = {
+        return {
             ...this.metrics,
             timestamp: new Date().toISOString()
         };
-        
-        // 添加内存池和事件管理器统计
-        if (typeof window !== 'undefined' && window.minesweeperMemory) {
-            try {
-                report.memoryPool = window.minesweeperMemory.getCellPoolStats();
-                report.eventManager = window.minesweeperMemory.getEventStats();
-            } catch (e) {
-                // 忽略错误，可能是模块还未初始化
-            }
-        }
-        
-        return report;
     }
 
     /**
@@ -124,40 +112,13 @@ export class PerformanceMonitor {
     logReport() {
         const report = this.getReport();
         console.group('🚀 扫雷游戏性能报告');
-        
-        // 性能指标
-        console.group('⏱️ 性能指标');
         console.log('游戏初始化时间:', report.gameInitTime.toFixed(2), 'ms');
         console.log('棋盘渲染时间:', report.boardRenderTime.toFixed(2), 'ms');
         console.log('单元格揭示时间:', report.cellRevealTime.toFixed(2), 'ms');
         console.log('当前帧率:', report.frameRate, 'fps');
-        console.groupEnd();
         
-        // 内存使用
         if (report.memoryUsage) {
-            console.group('💾 内存使用');
-            console.log('JS堆内存:', `${report.memoryUsage.used}MB / ${report.memoryUsage.total}MB`);
-            console.log('内存限制:', `${report.memoryUsage.limit}MB`);
-            console.groupEnd();
-        }
-        
-        // 对象池统计
-        if (report.memoryPool) {
-            console.group('🔄 对象池统计');
-            console.log('池中可用元素:', report.memoryPool.poolSize);
-            console.log('活跃元素:', report.memoryPool.activeElements);
-            console.log('总元素数:', report.memoryPool.totalElements);
-            console.log('估算内存使用:', report.memoryPool.memoryUsage, 'KB');
-            console.groupEnd();
-        }
-        
-        // 事件管理器统计
-        if (report.eventManager) {
-            console.group('🎯 事件管理器统计');
-            console.log('总事件监听器:', report.eventManager.totalListeners);
-            console.log('委托事件:', report.eventManager.delegatedEvents);
-            console.log('监听元素数:', report.eventManager.uniqueElements);
-            console.groupEnd();
+            console.log('内存使用:', `${report.memoryUsage.used}MB / ${report.memoryUsage.total}MB`);
         }
         
         console.groupEnd();

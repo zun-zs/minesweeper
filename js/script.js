@@ -6,8 +6,6 @@ import { GameTimer } from './timer.js';
 import { DIFFICULTY_SETTINGS, MAX_BOARD_SIZE } from './constants.js';
 import { debounce, validateBoardSize, validateMineCount } from './utils.js';
 import { performanceMonitor } from './performance.js';
-import { gameEventManager } from './event-manager.js';
-import { cellPool } from './object-pool.js';
 
 class Minesweeper {
     constructor() {
@@ -48,21 +46,12 @@ class Minesweeper {
         // 开始性能监控
          performanceMonitor.startMonitoring();
          
-         // 开发者工具：添加全局性能监控和内存池访问
+         // 开发者工具：添加全局性能监控访问
          if (typeof window !== 'undefined') {
              window.minesweeperPerf = {
                  getReport: () => performanceMonitor.getReport(),
                  logReport: () => performanceMonitor.logReport(),
                  reset: () => performanceMonitor.reset()
-             };
-             
-             window.minesweeperMemory = {
-                 getCellPoolStats: () => cellPool.getStats(),
-                 getEventStats: () => gameEventManager.getStats(),
-                 cleanup: () => {
-                     gameEventManager.cleanup();
-                     cellPool.destroy();
-                 }
              };
          }
     }
@@ -103,27 +92,25 @@ class Minesweeper {
     }
 
     initEventListeners() {
-        // 性能优化：使用事件管理器统一管理事件监听器
+        // 性能优化：使用事件委托，减少事件监听器数量
         if (this.elements.board) {
-            gameEventManager.addBoardListeners(this.elements.board, {
-                onClick: this.handleBoardClick.bind(this),
-                onRightClick: this.handleBoardRightClick.bind(this),
-                onMouseDown: this.handleBoardMouseDown.bind(this),
-                onMouseUp: this.handleBoardMouseUp.bind(this),
-                onMouseLeave: this.handleBoardMouseUp.bind(this),
-                onTouchStart: (e) => {
-                    e.preventDefault();
-                    const touch = e.touches[0];
-                    const element = document.elementFromPoint(touch.clientX, touch.clientY);
-                    if (element && element.classList.contains('cell')) {
-                        this.handleBoardClick({ target: element });
-                    }
+            this.elements.board.addEventListener('click', this.handleBoardClick.bind(this));
+            this.elements.board.addEventListener('contextmenu', this.handleBoardRightClick.bind(this));
+            this.elements.board.addEventListener('mousedown', this.handleBoardMouseDown.bind(this));
+            this.elements.board.addEventListener('mouseup', this.handleBoardMouseUp.bind(this));
+            this.elements.board.addEventListener('mouseleave', this.handleBoardMouseUp.bind(this));
+            // 移动端触控支持
+            this.elements.board.addEventListener('touchstart', (e) => {
+                const touch = e.touches[0];
+                const target = document.elementFromPoint(touch.clientX, touch.clientY);
+                if (target && target.classList.contains('cell')) {
+                    this.handleBoardClick({ target });
                 }
             });
         }
 
         if (this.elements.difficulty) {
-            gameEventManager.addEventListener(this.elements.difficulty, 'change', () => {
+            this.elements.difficulty.addEventListener('change', () => {
                 if (this.elements.customSettings) {
                     this.elements.customSettings.style.display = 
                         this.elements.difficulty.value === 'custom' ? 'block' : 'none';
@@ -133,54 +120,35 @@ class Minesweeper {
         }
 
         if (this.elements.newGameButton) {
-            gameEventManager.addEventListener(this.elements.newGameButton, 'click', () => this.startNewGame());
+            this.elements.newGameButton.addEventListener('click', () => this.startNewGame());
         }
         // 重新开始按钮
         const restartBtn = document.getElementById('restart-button');
         if (restartBtn) {
-            gameEventManager.addEventListener(restartBtn, 'click', () => {
+            restartBtn.addEventListener('click', () => {
                 this.resetGame();
                 this.initBoard();
             });
         }
 
-        // 自定义设置事件监听（使用防抖）
+        // 自定义设置事件监听
         if (this.elements.customWidth) {
-            gameEventManager.addEventListener(this.elements.customWidth, 'input', 
-                gameEventManager.createDebouncedHandler(this.validateCustomInputs.bind(this), 300));
+            this.elements.customWidth.addEventListener('input', debounce(this.validateCustomInputs.bind(this), 300));
         }
         if (this.elements.customHeight) {
-            gameEventManager.addEventListener(this.elements.customHeight, 'input', 
-                gameEventManager.createDebouncedHandler(this.validateCustomInputs.bind(this), 300));
+            this.elements.customHeight.addEventListener('input', debounce(this.validateCustomInputs.bind(this), 300));
         }
         if (this.elements.customMines) {
-            gameEventManager.addEventListener(this.elements.customMines, 'input', 
-                gameEventManager.createDebouncedHandler(this.validateCustomInputs.bind(this), 300));
+            this.elements.customMines.addEventListener('input', debounce(this.validateCustomInputs.bind(this), 300));
         }
 
-        // 窗口事件
-        gameEventManager.addWindowListeners({
-            onResize: () => {
-                if (!this.state.gameOver) {
-                    this.resetGame();
-                    this.initBoard();
-                }
-            },
-            onVisibilityChange: () => {
-                // 页面隐藏时暂停计时器，显示时恢复
-                if (document.hidden && this.timer && !this.state.gameOver) {
-                    this.timer.stop();
-                } else if (!document.hidden && this.timer && !this.state.gameOver && !this.state.firstClick) {
-                    this.timer.start();
-                }
-            },
-            onBeforeUnload: () => {
-                // 页面卸载前保存游戏状态
-                if (!this.state.gameOver) {
-                    GameStorage.saveGameState(this.state);
-                }
+        // 窗口大小变化事件
+        window.addEventListener('resize', debounce(() => {
+            if (!this.state.gameOver) {
+                this.resetGame();
+                this.initBoard();
             }
-        });
+        }, 250));
     }
 
     handleBoardClick(event) {
@@ -347,11 +315,8 @@ class Minesweeper {
         document.body.classList.remove('gameWon', 'gameLost');
         this.elements.message.classList.remove("visible", "hidden");
         if (this.board) {
-            this.board.reset(); // 这会自动归还单元格到对象池
+            this.board.reset();
         }
-        
-        // 清理游戏相关事件（保留UI事件）
-        gameEventManager.cleanupGameEvents();
     }
 
     initBoard() {

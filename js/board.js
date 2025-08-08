@@ -1,5 +1,3 @@
-import { cellPool } from './object-pool.js';
-
 export class GameBoard {
     constructor(width, height, cellSize) {
         this.width = width;
@@ -8,23 +6,16 @@ export class GameBoard {
         this.minePositions = new Set();
         this.cellCache = new WeakMap();
         this.adjacentCellsCache = new Map();
-        this.pooledCells = []; // 跟踪从对象池获取的元素
     }
 
     initializeBoard() {
-        // 性能优化：使用对象池复用DOM元素
         const fragment = document.createDocumentFragment();
         this.cells = Array(this.height).fill().map(() => Array(this.width).fill(null));
-        this.pooledCells = [];
 
         for (let row = 0; row < this.height; row++) {
             for (let col = 0; col < this.width; col++) {
-                // 从对象池获取单元格元素
-                const cell = cellPool.acquire();
-                cellPool.configureCell(cell, row, col, false);
-                
+                const cell = this.createCell(row, col);
                 this.cells[row][col] = cell;
-                this.pooledCells.push(cell);
                 fragment.appendChild(cell);
             }
         }
@@ -115,11 +106,5 @@ export class GameBoard {
         this.minePositions.clear();
         this.adjacentCellsCache.clear();
         this.cellCache = new WeakMap();
-        
-        // 性能优化：将使用的单元格归还到对象池
-        this.pooledCells.forEach(cell => {
-            cellPool.release(cell);
-        });
-        this.pooledCells = [];
     }
 }
